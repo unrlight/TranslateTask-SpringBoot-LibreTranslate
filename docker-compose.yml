@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: translatetask
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - translatetask-network
+
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    ports:
+      - "5000:5000"
+    networks:
+      - translatetask-network
+    environment:
+      LT_LOAD_ONLY: en,ru
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/translatetask
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      LIBRETRANSLATE_API_URL: http://libretranslate:5000/translate
+      LIBRETRANSLATE_API_KEY: api_key
+    depends_on:
+      postgres:
+        condition: service_started
+      libretranslate:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    networks:
+      - translatetask-network
+
+volumes:
+  postgres_data:
+
+networks:
+  translatetask-network:
+    driver: bridge
